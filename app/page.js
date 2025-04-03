@@ -56,44 +56,36 @@ export default function Home() {
 
   // Fetch tasks from Supabase database
   const fetchTasks = async () => {
-  if (!user) {
-    console.log("Cannot fetch tasks: No user logged in");
-    return;
-  }
-  
-  console.log("Fetching tasks for user:", user.id);
-  
-  // Fetch active tasks
-  const { data: activeTasks, error: activeError } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('is_completed', false)
-    .order('created_at', { ascending: false });
-  
-  if (activeError) {
-    console.error('Error fetching active tasks:', activeError);
-    alert('Failed to load tasks: ' + activeError.message);
-  } else {
-    console.log("Active tasks fetched:", activeTasks);
-    setTasks(activeTasks || []);
-  }
-  
-  // Fetch completed tasks
-  const { data: completedTasksData, error: completedError } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('is_completed', true)
-    .order('completed_at', { ascending: false });
-  
-  if (completedError) {
-    console.error('Error fetching completed tasks:', completedError);
-  } else {
-    console.log("Completed tasks fetched:", completedTasksData);
-    setCompletedTasks(completedTasksData || []);
-  }
-};
+    if (!user) return;
+    
+    // Fetch active tasks
+    const { data: activeTasks, error: activeError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_completed', false)
+      .order('created_at', { ascending: false });
+    
+    if (activeError) {
+      console.error('Error fetching active tasks:', activeError);
+    } else {
+      setTasks(activeTasks);
+    }
+    
+    // Fetch completed tasks
+    const { data: completedTasksData, error: completedError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_completed', true)
+      .order('completed_at', { ascending: false });
+    
+    if (completedError) {
+      console.error('Error fetching completed tasks:', completedError);
+    } else {
+      setCompletedTasks(completedTasksData);
+    }
+  };
   
   const calculateScore = (task) => {
     return (task.urgency * 0.34) + (task.importance * 0.33) + (task.enjoyment * 0.33);
@@ -107,43 +99,36 @@ export default function Home() {
   };
   
   const addTask = async () => {
-  if (!newTask.trim() || !user) {
-    console.log("Cannot add task: empty task or no user");
-    return;
-  }
-  
-  const newTaskData = {
-    text: newTask,
-    urgency,
-    importance,
-    enjoyment,
-    time,
-    is_recurring: isRecurring,
-    is_completed: false,
-    user_id: user.id
+    if (!newTask.trim() || !user) return;
+    
+    const newTaskData = {
+      text: newTask,
+      urgency,
+      importance,
+      enjoyment,
+      time,
+      is_recurring: isRecurring,
+      is_completed: false,
+      user_id: user.id
+    };
+    
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert([newTaskData])
+      .select();
+    
+    if (error) {
+      console.error('Error adding task:', error);
+    } else {
+      setTasks([...data, ...tasks]);
+      setNewTask('');
+      setUrgency(5);
+      setImportance(5);
+      setEnjoyment(5);
+      setTime(30);
+      setIsRecurring(false);
+    }
   };
-  
-  console.log("Adding task:", newTaskData);
-  
-  const { data, error } = await supabase
-    .from('tasks')
-    .insert([newTaskData])
-    .select();
-  
-  if (error) {
-    console.error('Error adding task:', error);
-    alert('Failed to add task: ' + error.message);
-  } else {
-    console.log("Task added successfully:", data);
-    setTasks([...data, ...tasks]);
-    setNewTask('');
-    setUrgency(5);
-    setImportance(5);
-    setEnjoyment(5);
-    setTime(30);
-    setIsRecurring(false);
-  }
-};
   
   const startEditing = (task) => {
     setEditingTask(task.id);
