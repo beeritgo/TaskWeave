@@ -101,3 +101,9 @@ export default function Login() {
             <Link href="/signup" className="font-medium text-blue-600 hover:text-blue-500">
               Sign up
             </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
