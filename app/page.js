@@ -155,7 +155,7 @@ export default function Home() {
               value={newTask}
               onChange={(e) => setNewTask(e.target.value)}
               className="w-full p-2 border rounded"
-              placeholder="Enter task description"
+              placeholder="Enter task description-1"
             />
           </div>
           
