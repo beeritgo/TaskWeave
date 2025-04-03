@@ -20,52 +20,52 @@ export default function Home() {
   
   // Check authentication status
   useEffect(() => {
-    const getUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        console.log("Auth check - User:", user);
-        
-        if (!user) {
-          console.log("No user found, redirecting to login");
-          router.push('/login');
-        } else {
-          console.log("User authenticated:", user.email);
-          setUser(user);
-          setLoading(false);
-          // Load tasks from database
-          await fetchTasks(user.id);
-        }
-      } catch (error) {
-        console.error("Auth check error:", error);
+  const getUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("Auth check - User object:", user);
+      console.log("Auth check - User ID type:", typeof user.id);
+      
+      if (!user) {
+        console.log("No user found, redirecting to login");
+        router.push('/login');
+      } else {
+        console.log("User authenticated:", user.email, "with ID:", user.id);
+        setUser(user);
+        setLoading(false);
+        // Load tasks from database
+        await fetchTasks(user.id);
       }
-    };
-    
-    getUser();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Auth event:", event);
-        
-        if (event === 'SIGNED_IN') {
-          console.log("User signed in:", session.user.email);
-          setUser(session.user);
-          setLoading(false);
-          await fetchTasks(session.user.id);
-        } else if (event === 'SIGNED_OUT') {
-          console.log("User signed out");
-          setUser(null);
-          router.push('/login');
-        }
+    } catch (error) {
+      console.error("Auth check error:", error);
+    }
+  };
+  
+  getUser();
+  
+  const { data: authListener } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      console.log("Auth event:", event);
+      
+      if (event === 'SIGNED_IN') {
+        console.log("User signed in:", session.user.email, "with ID:", session.user.id);
+        setUser(session.user);
+        setLoading(false);
+        await fetchTasks(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        console.log("User signed out");
+        setUser(null);
+        router.push('/login');
       }
-    );
-    
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
-      }
-    };
-  }, [router]);
-
+    }
+  );
+  
+  return () => {
+    if (authListener && authListener.subscription) {
+      authListener.subscription.unsubscribe();
+    }
+  };
+}, [router]);
   // Fetch tasks from Supabase database
   const fetchTasks = async (userId) => {
     if (!userId) {
