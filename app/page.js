@@ -19,81 +19,95 @@ export default function Home() {
   const router = useRouter();
   
   // Check authentication status
-useEffect(() => {
-  const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    setUser(user);
-    if (!user) {
-      router.push('/login');
-    } else {
-      setLoading(false);
-      // Load tasks from database
-      fetchTasks();
-    }
-  };
-  
-  getUser();
-  
-  const { data: authListener } = supabase.auth.onAuthStateChange(
-    (event, session) => {
-      if (event === 'SIGNED_IN') {
-        setUser(session.user);
-        setLoading(false);
-        fetchTasks();
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-        router.push('/login');
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        console.log("Auth check - User:", user);
+        
+        if (!user) {
+          console.log("No user found, redirecting to login");
+          router.push('/login');
+        } else {
+          console.log("User authenticated:", user.email);
+          setUser(user);
+          setLoading(false);
+          // Load tasks from database
+          await fetchTasks(user.id);
+        }
+      } catch (error) {
+        console.error("Auth check error:", error);
       }
-    }
-  );
-  
-  return () => {
-    if (authListener && authListener.subscription) {
-      authListener.subscription.unsubscribe();
-    }
-  };
-}, [router]);
+    };
+    
+    getUser();
+    
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Auth event:", event);
+        
+        if (event === 'SIGNED_IN') {
+          console.log("User signed in:", session.user.email);
+          setUser(session.user);
+          setLoading(false);
+          await fetchTasks(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          console.log("User signed out");
+          setUser(null);
+          router.push('/login');
+        }
+      }
+    );
+    
+    return () => {
+      if (authListener && authListener.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
+  }, [router]);
 
   // Fetch tasks from Supabase database
-  const fetchTasks = async () => {
-  if (!user) {
-    console.log("Cannot fetch tasks: No user logged in");
-    return;
-  }
-  
-  console.log("Fetching tasks for user:", user.id);
-  
-  // Fetch active tasks
-  const { data: activeTasks, error: activeError } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('is_completed', false)
-    .order('created_at', { ascending: false });
-  
-  if (activeError) {
-    console.error('Error fetching active tasks:', activeError);
-    alert('Failed to load tasks: ' + activeError.message);
-  } else {
-    console.log("Active tasks fetched:", activeTasks);
-    setTasks(activeTasks || []);
-  }
-  
-  // Fetch completed tasks
-  const { data: completedTasksData, error: completedError } = await supabase
-    .from('tasks')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('is_completed', true)
-    .order('completed_at', { ascending: false });
-  
-  if (completedError) {
-    console.error('Error fetching completed tasks:', completedError);
-  } else {
-    console.log("Completed tasks fetched:", completedTasksData);
-    setCompletedTasks(completedTasksData || []);
-  }
-};
+  const fetchTasks = async (userId) => {
+    if (!userId) {
+      console.log("Cannot fetch tasks: No user ID provided");
+      return;
+    }
+    
+    console.log("Fetching tasks for user:", userId);
+    
+    try {
+      // Fetch active tasks
+      const { data: activeTasks, error: activeError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_completed', false);
+      
+      if (activeError) {
+        console.error('Error fetching active tasks:', activeError);
+      } else {
+        console.log("Active tasks fetched:", activeTasks);
+        setTasks(activeTasks || []);
+      }
+      
+      // Fetch completed tasks
+      const { data: completedTasksData, error: completedError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_completed', true)
+        .order('completed_at', { ascending: false });
+      
+      if (completedError) {
+        console.error('Error fetching completed tasks:', completedError);
+      } else {
+        console.log("Completed tasks fetched:", completedTasksData);
+        setCompletedTasks(completedTasksData || []);
+      }
+    } catch (error) {
+      console.error("Error in fetchTasks:", error);
+    }
+  };
   
   const calculateScore = (task) => {
     return (task.urgency * 0.34) + (task.importance * 0.33) + (task.enjoyment * 0.33);
@@ -107,43 +121,51 @@ useEffect(() => {
   };
   
   const addTask = async () => {
-  if (!newTask.trim() || !user) {
-    console.log("Cannot add task: empty task or no user");
-    return;
-  }
-  
-  const newTaskData = {
-    text: newTask,
-    urgency,
-    importance,
-    enjoyment,
-    time,
-    is_recurring: isRecurring,
-    is_completed: false,
-    user_id: user.id
+    if (!newTask.trim() || !user) {
+      console.log("Cannot add task: empty task or no user");
+      return;
+    }
+    
+    const newTaskData = {
+      text: newTask,
+      urgency,
+      importance,
+      enjoyment,
+      time,
+      is_recurring: isRecurring,
+      is_completed: false,
+      user_id: user.id
+    };
+    
+    console.log("Adding task:", newTaskData);
+    
+    try {
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert([newTaskData])
+        .select();
+      
+      if (error) {
+        console.error('Error adding task:', error);
+        alert('Failed to add task: ' + error.message);
+      } else {
+        console.log("Task added successfully:", data);
+        // Refetch all tasks to ensure we have the latest data
+        await fetchTasks(user.id);
+        
+        // Reset form
+        setNewTask('');
+        setUrgency(5);
+        setImportance(5);
+        setEnjoyment(5);
+        setTime(30);
+        setIsRecurring(false);
+      }
+    } catch (error) {
+      console.error("Error in addTask:", error);
+      alert('An unexpected error occurred');
+    }
   };
-  
-  console.log("Adding task:", newTaskData);
-  
-  const { data, error } = await supabase
-    .from('tasks')
-    .insert([newTaskData])
-    .select();
-  
-  if (error) {
-    console.error('Error adding task:', error);
-    alert('Failed to add task: ' + error.message);
-  } else {
-    console.log("Task added successfully:", data);
-    setTasks([...data, ...tasks]);
-    setNewTask('');
-    setUrgency(5);
-    setImportance(5);
-    setEnjoyment(5);
-    setTime(30);
-    setIsRecurring(false);
-  }
-};
   
   const startEditing = (task) => {
     setEditingTask(task.id);
@@ -156,7 +178,10 @@ useEffect(() => {
   };
 
   const updateTask = async () => {
-    if (!newTask.trim() || !user) return;
+    if (!newTask.trim() || !user) {
+      console.log("Cannot update task: empty task or no user");
+      return;
+    }
     
     const updatedData = {
       text: newTask,
@@ -167,27 +192,35 @@ useEffect(() => {
       is_recurring: isRecurring,
     };
     
-    const { error } = await supabase
-      .from('tasks')
-      .update(updatedData)
-      .eq('id', editingTask)
-      .eq('user_id', user.id);
+    console.log("Updating task:", editingTask, updatedData);
     
-    if (error) {
-      console.error('Error updating task:', error);
-    } else {
-      setTasks(tasks.map(task => 
-        task.id === editingTask 
-          ? { ...task, ...updatedData }
-          : task
-      ));
-      setEditingTask(null);
-      setNewTask('');
-      setUrgency(5);
-      setImportance(5);
-      setEnjoyment(5);
-      setTime(30);
-      setIsRecurring(false);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update(updatedData)
+        .eq('id', editingTask)
+        .eq('user_id', user.id);
+      
+      if (error) {
+        console.error('Error updating task:', error);
+        alert('Failed to update task: ' + error.message);
+      } else {
+        console.log("Task updated successfully");
+        // Refetch all tasks to ensure we have the latest data
+        await fetchTasks(user.id);
+        
+        // Reset form
+        setEditingTask(null);
+        setNewTask('');
+        setUrgency(5);
+        setImportance(5);
+        setEnjoyment(5);
+        setTime(30);
+        setIsRecurring(false);
+      }
+    } catch (error) {
+      console.error("Error in updateTask:", error);
+      alert('An unexpected error occurred');
     }
   };
 
@@ -202,52 +235,65 @@ useEffect(() => {
   };
   
   const completeTask = async (taskId) => {
+    if (!user) {
+      console.log("Cannot complete task: no user");
+      return;
+    }
+    
     const task = tasks.find(t => t.id === taskId);
+    if (!task) {
+      console.log("Task not found:", taskId);
+      return;
+    }
+    
     const now = new Date().toISOString();
+    console.log("Completing task:", taskId);
     
-    const { error } = await supabase
-      .from('tasks')
-      .update({ 
-        is_completed: true,
-        completed_at: now
-      })
-      .eq('id', taskId)
-      .eq('user_id', user.id);
-    
-    if (error) {
-      console.error('Error completing task:', error);
-    } else {
-      const completedTask = { ...task, is_completed: true, completed_at: now };
-      setCompletedTasks([completedTask, ...completedTasks]);
-      setTasks(tasks.filter(t => t.id !== taskId));
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          is_completed: true,
+          completed_at: now
+        })
+        .eq('id', taskId)
+        .eq('user_id', user.id);
       
-      // If task is recurring, create a new instance for tomorrow
-      if (task.is_recurring) {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
+      if (error) {
+        console.error('Error completing task:', error);
+        alert('Failed to complete task: ' + error.message);
+      } else {
+        console.log("Task completed successfully");
         
-        const newRecurringTask = {
-          text: task.text,
-          urgency: task.urgency,
-          importance: task.importance,
-          enjoyment: task.enjoyment,
-          time: task.time,
-          is_recurring: true,
-          is_completed: false,
-          user_id: user.id
-        };
-        
-        const { data, error } = await supabase
-          .from('tasks')
-          .insert([newRecurringTask])
-          .select();
-        
-        if (error) {
-          console.error('Error creating recurring task:', error);
-        } else {
-          // The new task will appear next time tasks are fetched
+        // If task is recurring, create a new instance for tomorrow
+        if (task.is_recurring) {
+          console.log("Creating recurring task for tomorrow");
+          const newRecurringTask = {
+            text: task.text,
+            urgency: task.urgency,
+            importance: task.importance,
+            enjoyment: task.enjoyment,
+            time: task.time,
+            is_recurring: true,
+            is_completed: false,
+            user_id: user.id
+          };
+          
+          const { error: recError } = await supabase
+            .from('tasks')
+            .insert([newRecurringTask]);
+          
+          if (recError) {
+            console.error('Error creating recurring task:', recError);
+          }
         }
+        
+        // Refetch all tasks to ensure we have the latest data
+        await fetchTasks(user.id);
       }
+    } catch (error) {
+      console.error("Error in completeTask:", error);
+      alert('An unexpected error occurred');
     }
   };
   
