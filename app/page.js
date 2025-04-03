@@ -99,36 +99,43 @@ export default function Home() {
   };
   
   const addTask = async () => {
-    if (!newTask.trim() || !user) return;
-    
-    const newTaskData = {
-      text: newTask,
-      urgency,
-      importance,
-      enjoyment,
-      time,
-      is_recurring: isRecurring,
-      is_completed: false,
-      user_id: user.id
-    };
-    
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert([newTaskData])
-      .select();
-    
-    if (error) {
-      console.error('Error adding task:', error);
-    } else {
-      setTasks([...data, ...tasks]);
-      setNewTask('');
-      setUrgency(5);
-      setImportance(5);
-      setEnjoyment(5);
-      setTime(30);
-      setIsRecurring(false);
-    }
+  if (!newTask.trim() || !user) {
+    console.log("Cannot add task: empty task or no user");
+    return;
+  }
+  
+  const newTaskData = {
+    text: newTask,
+    urgency,
+    importance,
+    enjoyment,
+    time,
+    is_recurring: isRecurring,
+    is_completed: false,
+    user_id: user.id
   };
+  
+  console.log("Adding task:", newTaskData);
+  
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert([newTaskData])
+    .select();
+  
+  if (error) {
+    console.error('Error adding task:', error);
+    alert('Failed to add task: ' + error.message);
+  } else {
+    console.log("Task added successfully:", data);
+    setTasks([...data, ...tasks]);
+    setNewTask('');
+    setUrgency(5);
+    setImportance(5);
+    setEnjoyment(5);
+    setTime(30);
+    setIsRecurring(false);
+  }
+};
   
   const startEditing = (task) => {
     setEditingTask(task.id);
