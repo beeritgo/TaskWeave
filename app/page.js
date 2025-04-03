@@ -1,193 +1,120 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
-import { supabase } from '../lib/supabase';
+import Link from 'next/link';
 
-export default function Home() {
-  const [tasks, setTasks] = useState([]);
-  const [completedTasks, setCompletedTasks] = useState([]);
-  const [newTask, setNewTask] = useState('');
-  const [urgency, setUrgency] = useState(5);
-  const [importance, setImportance] = useState(5);
-  const [enjoyment, setEnjoyment] = useState(5);
-  const [time, setTime] = useState(30);
-  const [isRecurring, setIsRecurring] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+export default function Signup() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
   const router = useRouter();
-  
-  // Check authentication status
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (!user) {
-        router.push('/login');
-      } else {
-        setLoading(false);
-      }
-    };
-    
-    getUser();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN') {
-          setUser(session.user);
-          setLoading(false);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          router.push('/login');
-        }
-      }
-    );
-    
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
-      }
-    };
-  }, [router]);
 
-  // Load data from localStorage on component mount
-  useEffect(() => {
+  const handleSignup = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+
     try {
-      if (typeof window !== 'undefined') {
-        const savedTasks = localStorage.getItem('taskweave-tasks');
-        const savedCompleted = localStorage.getItem('taskweave-completed');
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
+      setMessage('Check your email for the confirmation link.');
+      
+      // Optional: auto-navigate to login after signup
+      // router.push('/login');
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
+        <div>
+          <h2 className="text-center text-3xl font-extrabold text-gray-900">
+            TaskWeave
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Create your account
+          </p>
+        </div>
         
-        if (savedTasks) {
-          setTasks(JSON.parse(savedTasks));
-        }
+        {error && (
+          <div className="bg-red-50 text-red-500 p-3 rounded">
+            {error}
+          </div>
+        )}
         
-        if (savedCompleted) {
-          setCompletedTasks(JSON.parse(savedCompleted));
-        }
-      }
-    } catch (error) {
-      console.error("Error loading from localStorage:", error);
-    }
-  }, []);
-
-  // Save tasks to localStorage whenever they change
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && tasks.length > 0) {
-        localStorage.setItem('taskweave-tasks', JSON.stringify(tasks));
-      }
-    } catch (error) {
-      console.error("Error saving tasks to localStorage:", error);
-    }
-  }, [tasks]);
-
-  // Save completed tasks to localStorage whenever they change
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && completedTasks.length > 0) {
-        localStorage.setItem('taskweave-completed', JSON.stringify(completedTasks));
-      }
-    } catch (error) {
-      console.error("Error saving completed tasks to localStorage:", error);
-    }
-  }, [completedTasks]);
-  
-  const calculateScore = (task) => {
-    return (task.urgency * 0.34) + (task.importance * 0.33) + (task.enjoyment * 0.33);
-  };
-  
-  const getNextTask = () => {
-    if (tasks.length === 0) return null;
-    return tasks.reduce((prev, current) => 
-      calculateScore(current) > calculateScore(prev) ? current : prev
-    );
-  };
-  
-  const addTask = () => {
-    if (newTask.trim()) {
-      setTasks([...tasks, {
-        id: Date.now(),
-        text: newTask,
-        urgency,
-        importance, 
-        enjoyment,
-        time,
-        isRecurring
-      }]);
-      setNewTask('');
-      setUrgency(5);
-      setImportance(5);
-      setEnjoyment(5);
-      setTime(30);
-      setIsRecurring(false);
-    }
-  };
-  
-  const startEditing = (task) => {
-    setEditingTask(task.id);
-    setNewTask(task.text);
-    setUrgency(task.urgency);
-    setImportance(task.importance);
-    setEnjoyment(task.enjoyment);
-    setTime(task.time);
-    setIsRecurring(task.isRecurring);
-  };
-
-  const updateTask = () => {
-    if (newTask.trim()) {
-      setTasks(tasks.map(task => 
-        task.id === editingTask 
-          ? {
-              ...task,
-              text: newTask,
-              urgency,
-              importance,
-              enjoyment,
-              time,
-              isRecurring
-            }
-          : task
-      ));
-      setEditingTask(null);
-      setNewTask('');
-      setUrgency(5);
-      setImportance(5);
-      setEnjoyment(5);
-      setTime(30);
-      setIsRecurring(false);
-    }
-  };
-
-  const cancelEditing = () => {
-    setEditingTask(null);
-    setNewTask('');
-    setUrgency(5);
-    setImportance(5);
-    setEnjoyment(5);
-    setTime(30);
-    setIsRecurring(false);
-  };
-  
-  const completeTask = (taskId) => {
-    const task = tasks.find(t => t.id === taskId);
-    setCompletedTasks([
-      { ...task, completedAt: new Date().toISOString() },
-      ...completedTasks
-    ]);
-    setTasks(tasks.filter(t => t.id !== taskId));
-  };
-  
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-  };
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
+        {message && (
+          <div className="bg-green-50 text-green-500 p-3 rounded">
+            {message}
+          </div>
+        )}
+        
+        <form className="mt-8 space-y-6" onSubmit={handleSignup}>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              Email address
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength="6"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+            />
+            <p className="mt-1 text-xs text-gray-500">Password must be at least 6 characters</p>
+          </div>
+          
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              {loading ? 'Creating account...' : 'Create account'}
+            </button>
+          </div>
+        </form>
+        
+        <div className="text-center mt-4">
+          <p className="text-sm">
+            Already have an account?{' '}
+            <Link href="/login" className="font-medium text-blue-600 hover:text-blue-500">
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
-    );
-  }
-  
-  return
+    </div>
+  );
+}
