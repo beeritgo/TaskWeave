@@ -20,39 +20,44 @@ export default function Home() {
   
   // Check authentication status
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (!user) {
-        router.push('/login');
-      } else {
+  const getUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+    if (!user) {
+      router.push('/login');
+    } else {
+      setLoading(false);
+    }
+  };
+
+  getUser();
+
+  const { data: authListener } = supabase.auth.onAuthStateChange(
+    (event, session) => {
+      if (event === 'SIGNED_IN') {
+        setUser(session.user);
         setLoading(false);
-        // Load tasks from database
-        fetchTasks();
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        router.push('/login');
       }
-    };
-    
-    getUser();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN') {
-          setUser(session.user);
-          setLoading(false);
-          fetchTasks();
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          router.push('/login');
-        }
-      }
-    );
-    
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
-      }
-    };
-  }, [router]);
+    }
+  );
+
+  return () => {
+    if (authListener && authListener.subscription) {
+      authListener.subscription.unsubscribe();
+    }
+  };
+}, [router]);
+
+// NEW CODE: Fetch tasks when user is set
+useEffect(() => {
+  if (user) {
+    fetchTasks();
+  }
+}, [user]);
+
 
   // Fetch tasks from Supabase database
   const fetchTasks = async () => {
