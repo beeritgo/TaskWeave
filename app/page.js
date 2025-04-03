@@ -56,36 +56,44 @@ export default function Home() {
 
   // Fetch tasks from Supabase database
   const fetchTasks = async () => {
-    if (!user) return;
-    
-    // Fetch active tasks
-    const { data: activeTasks, error: activeError } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_completed', false)
-      .order('created_at', { ascending: false });
-    
-    if (activeError) {
-      console.error('Error fetching active tasks:', activeError);
-    } else {
-      setTasks(activeTasks);
-    }
-    
-    // Fetch completed tasks
-    const { data: completedTasksData, error: completedError } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_completed', true)
-      .order('completed_at', { ascending: false });
-    
-    if (completedError) {
-      console.error('Error fetching completed tasks:', completedError);
-    } else {
-      setCompletedTasks(completedTasksData);
-    }
-  };
+  if (!user) {
+    console.log("Cannot fetch tasks: No user logged in");
+    return;
+  }
+  
+  console.log("Fetching tasks for user:", user.id);
+  
+  // Fetch active tasks
+  const { data: activeTasks, error: activeError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_completed', false)
+    .order('created_at', { ascending: false });
+  
+  if (activeError) {
+    console.error('Error fetching active tasks:', activeError);
+    alert('Failed to load tasks: ' + activeError.message);
+  } else {
+    console.log("Active tasks fetched:", activeTasks);
+    setTasks(activeTasks || []);
+  }
+  
+  // Fetch completed tasks
+  const { data: completedTasksData, error: completedError } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('is_completed', true)
+    .order('completed_at', { ascending: false });
+  
+  if (completedError) {
+    console.error('Error fetching completed tasks:', completedError);
+  } else {
+    console.log("Completed tasks fetched:", completedTasksData);
+    setCompletedTasks(completedTasksData || []);
+  }
+};
   
   const calculateScore = (task) => {
     return (task.urgency * 0.34) + (task.importance * 0.33) + (task.enjoyment * 0.33);
