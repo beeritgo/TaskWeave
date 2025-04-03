@@ -19,40 +19,40 @@ export default function Home() {
   const router = useRouter();
   
   // Check authentication status
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (!user) {
-        router.push('/login');
-      } else {
+useEffect(() => {
+  const getUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
+    if (!user) {
+      router.push('/login');
+    } else {
+      setLoading(false);
+      // Load tasks from database
+      fetchTasks();
+    }
+  };
+  
+  getUser();
+  
+  const { data: authListener } = supabase.auth.onAuthStateChange(
+    (event, session) => {
+      if (event === 'SIGNED_IN') {
+        setUser(session.user);
         setLoading(false);
-        // Load tasks from database
         fetchTasks();
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        router.push('/login');
       }
-    };
-    
-    getUser();
-    
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_IN') {
-          setUser(session.user);
-          setLoading(false);
-          fetchTasks();
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          router.push('/login');
-        }
-      }
-    );
-    
-    return () => {
-      if (authListener && authListener.subscription) {
-        authListener.subscription.unsubscribe();
-      }
-    };
-  }, [router]);
+    }
+  );
+  
+  return () => {
+    if (authListener && authListener.subscription) {
+      authListener.subscription.unsubscribe();
+    }
+  };
+}, [router]);
 
   // Fetch tasks from Supabase database
   const fetchTasks = async () => {
