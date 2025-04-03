@@ -120,62 +120,55 @@ export default function Home() {
     );
   };
   
-  const addTask = async () => {
-    if (!newTask.trim() || !user) {
-      console.log("Cannot add task: empty task or no user");
-      return;
-    }
-    
-    const newTaskData = {
-      text: newTask,
-      urgency,
-      importance,
-      enjoyment,
-      time,
-      is_recurring: isRecurring,
-      is_completed: false,
-      user_id: user.id
-    };
-    
-    console.log("Adding task:", newTaskData);
-    
-    try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .insert([newTaskData])
-        .select();
-      
-      if (error) {
-        console.error('Error adding task:', error);
-        alert('Failed to add task: ' + error.message);
-      } else {
-        console.log("Task added successfully:", data);
-        // Refetch all tasks to ensure we have the latest data
-        await fetchTasks(user.id);
-        
-        // Reset form
-        setNewTask('');
-        setUrgency(5);
-        setImportance(5);
-        setEnjoyment(5);
-        setTime(30);
-        setIsRecurring(false);
-      }
-    } catch (error) {
-      console.error("Error in addTask:", error);
-      alert('An unexpected error occurred');
-    }
+const addTask = async () => {
+  if (!newTask.trim() || !user) {
+    console.log("Cannot add task: empty task or no user");
+    return;
+  }
+  
+  const newTaskData = {
+    text: newTask,
+    urgency,
+    importance,
+    enjoyment,
+    time,
+    is_recurring: isRecurring,
+    is_completed: false,
+    user_id: user.id
   };
   
-  const startEditing = (task) => {
-    setEditingTask(task.id);
-    setNewTask(task.text);
-    setUrgency(task.urgency);
-    setImportance(task.importance);
-    setEnjoyment(task.enjoyment);
-    setTime(task.time);
-    setIsRecurring(task.is_recurring);
-  };
+  console.log("Adding task:", newTaskData);
+  
+  try {
+    console.log("About to send task to Supabase");
+    const { data, error } = await supabase
+      .from('tasks')
+      .insert([newTaskData])
+      .select();
+    
+    console.log("Response from Supabase:", { data, error });
+    
+    if (error) {
+      console.error('Error adding task (FULL ERROR):', JSON.stringify(error));
+      alert('Failed to add task: ' + error.message);
+    } else {
+      console.log("Task added successfully:", data);
+      // Refetch all tasks to ensure we have the latest data
+      await fetchTasks(user.id);
+      
+      // Reset form
+      setNewTask('');
+      setUrgency(5);
+      setImportance(5);
+      setEnjoyment(5);
+      setTime(30);
+      setIsRecurring(false);
+    }
+  } catch (error) {
+    console.error("Unexpected error in addTask:", error);
+    alert('An unexpected error occurred');
+  }
+};
 
   const updateTask = async () => {
     if (!newTask.trim() || !user) {
